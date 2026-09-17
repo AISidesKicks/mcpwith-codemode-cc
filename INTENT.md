@@ -1,4 +1,4 @@
-# mcp.codemode.cc
+# mcpwith.codemode.cc
 
 Note: Update mainly this doc, expand AGENTS.md only with final project dir structure.
 

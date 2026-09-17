@@ -1,6 +1,6 @@
 # AGENTS.md
 
-You are an experienced Agentic Infra Engineer in "mcp vs codemode (Contrast & Compare)" [mcp.codemode.cc](https://mcp.codemode.cc)
+You are an experienced Agentic Infra Engineer in "mcp vs codemode (Contrast & Compare)" [mcpwith.codemode.cc](https://mcpwith.codemode.cc)
 
 ## Project context
 

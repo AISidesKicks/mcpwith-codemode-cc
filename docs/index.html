@@ -247,6 +247,33 @@
     font-size: .86rem;
   }
   .h-card li { margin-bottom: .35rem; }
+  .table-wrap {
+    overflow-x: auto;
+    margin: 1rem 0 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: .75rem;
+    background: var(--card);
+  }
+  table.matrix {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .85rem;
+    text-align: left;
+  }
+  table.matrix th, table.matrix td {
+    padding: .6rem .85rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.matrix th {
+    background: var(--code-bg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+  }
+  table.matrix tr:last-child td { border-bottom: none; }
 </style>
 </head>
 <body>
@@ -471,12 +498,67 @@
     </figcaption>
   </figure>
 
-  <h2>Code Mode in Production Harnesses — Pi 1.0 &amp; OpenCode 2.0</h2>
+  <h2>Code Mode in Production Harnesses — Pi 1.0, OpenCode 2.0 &amp; Across the Ecosystem</h2>
   <p>
     Both <a class="ext" href="https://pi.dev/docs/latest/codemode"><strong>Pi 1.0</strong></a> and
     <a class="ext" href="https://opencode.ai/v2/docs/tools/#execute"><strong>OpenCode 2.0</strong></a>
-    now ship native <strong>Code Mode</strong> out of the box. Instead of dumping every MCP schema into the prompt and streaming raw intermediate tool payloads through the LLM context window, the agent writes a small JavaScript program that orchestrates tool calls in parallel, filters data in-memory, and returns only the distilled result.
+    now ship native <strong>Code Mode</strong> out of the box, alongside
+    <a class="ext" href="https://github.com/openai/codex"><strong>OpenAI Codex CLI</strong></a>,
+    <a class="ext" href="https://goose-docs.ai/docs/guides/managing-tools/code-mode/"><strong>Goose</strong></a>, and
+    <a class="ext" href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling"><strong>Claude</strong></a>.
+    Instead of dumping every MCP schema into the prompt and streaming raw intermediate tool payloads through the LLM context window, the agent writes a small program that orchestrates tool calls in parallel, filters data in-memory, and returns only the distilled result.
   </p>
+
+  <div class="table-wrap">
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th>Harness</th>
+          <th>Native Code Mode?</th>
+          <th>Sandbox Runtime &amp; Language</th>
+          <th>Tool Discovery &amp; Catalog</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong><a class="ext" href="https://pi.dev/docs/latest/codemode">Pi 1.0</a></strong></td>
+          <td><strong>Yes</strong> (<code>codemode</code> tool)</td>
+          <td><strong>QuickJS</strong> (JS, 256 MB cap)</td>
+          <td><code>exposure: "codemode"</code>, <code>searchTools()</code> (BM25), <code>describeTool()</code>, <code>ALL_TOOLS</code></td>
+        </tr>
+        <tr>
+          <td><strong><a class="ext" href="https://opencode.ai/v2/docs/tools/#execute">OpenCode 2.0</a></strong></td>
+          <td><strong>Yes</strong> (<code>execute</code> tool)</td>
+          <td><strong>Confined JS Runtime</strong> + <code>fetch</code></td>
+          <td><code>codemode: true</code> (default for MCP), <code>tools.&lt;ns&gt;.&lt;tool&gt;</code>, <code>search()</code></td>
+        </tr>
+        <tr>
+          <td><strong><a class="ext" href="https://github.com/openai/codex">OpenAI Codex CLI</a></strong></td>
+          <td><strong>Yes</strong> (<code>functions.exec</code>)</td>
+          <td><strong><code>codex-code-mode-host</code></strong> (JS, local or remote WS)</td>
+          <td><code>code_mode_host = true</code> (default), <code>Promise.allSettled()</code> batching</td>
+        </tr>
+        <tr>
+          <td><strong><a class="ext" href="https://goose-docs.ai/docs/guides/managing-tools/code-mode/">Goose (AAIF)</a></strong></td>
+          <td><strong>Yes</strong> (<code>code_execution</code>)</td>
+          <td><strong>pctx / Deno</strong> (TypeScript)</td>
+          <td>3 meta-tools: <code>list_functions</code>, <code>get_function_details</code>, <code>execute_typescript</code></td>
+        </tr>
+        <tr>
+          <td><strong><a class="ext" href="https://code.claude.com/docs/en/agent-sdk/tool-search">Claude Code CLI</a> / <a class="ext" href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling">API</a></strong></td>
+          <td><strong>Hybrid</strong> (<code>MCPSearch</code> + PTC)</td>
+          <td><strong>Tool Search</strong> in CLI; <strong>Python</strong> container in API PTC</td>
+          <td><code>defer_loading: true</code> (<code>ENABLE_TOOL_SEARCH=auto:5</code>) + <code>code_execution_20260120</code></td>
+        </tr>
+        <tr>
+          <td><strong><a class="ext" href="https://github.com/huggingface/tau">Tau (<code>huggingface/tau</code>)</a></strong></td>
+          <td><strong>Via Extension</strong></td>
+          <td><strong>Python 3.12+</strong> (<code>tau.register_tool</code>)</td>
+          <td>Minimal 4-tool core (<code>read</code>/<code>write</code>/<code>edit</code>/<code>bash</code>); embed <strong>Monty</strong> via extension</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
   <div class="harnesses">
     <section class="h-card">
@@ -527,6 +609,46 @@ return {
   activeProjects: projects.map(p =&gt; p.name),
   resources: resB.status === "fulfilled" ? resB.value.resources.length : 0,
 };</code></pre>
+    </section>
+
+    <section class="h-card">
+      <span class="num">OpenAI Codex CLI</span>
+      <h3><code>functions.exec</code> (<code>codex-code-mode-host</code>)</h3>
+      <p class="desc">Dedicated local or remote WebSocket execution host enabled by default in Codex CLI (v0.146+).</p>
+      <ul>
+        <li><strong>Configured via <code>~/.codex/config.toml</code>:</strong> Enabled by default under <code>[features]</code> with <code>code_mode = true</code>, <code>code_mode_host = true</code>, and optional <code>code_mode_only = true</code> (or remotely via <code>--code-mode-host wss://...</code>).</li>
+        <li><strong>How it is used:</strong> The agent writes JS in <code>functions.exec</code> to batch nested built-in tools (<code>exec_command</code>, <code>apply_patch</code>, <code>wait</code>) and MCP tools with <code>Promise.allSettled()</code> while preserving host approval policies.</li>
+      </ul>
+    </section>
+
+    <section class="h-card">
+      <span class="num">Goose (AAIF)</span>
+      <h3><code>code_execution</code> extension (<code>pctx</code> / Deno)</h3>
+      <p class="desc">Built-in MCP facade powered by Port of Context (<code>pctx</code>), a sandboxed Deno TypeScript runtime.</p>
+      <ul>
+        <li><strong>Configured via <code>goose configure</code>:</strong> Toggle the built-in <code>code_execution</code> extension (or pass <code>--with-builtin code_execution,developer</code>).</li>
+        <li><strong>How it is used:</strong> Hides raw MCP schemas behind 3 meta-tools — <code>list_functions</code>, <code>get_function_details</code>, and <code>execute_typescript</code> — so the agent discovers schemas on demand and chains calls in TypeScript.</li>
+      </ul>
+    </section>
+
+    <section class="h-card">
+      <span class="num">Claude Code CLI &amp; API</span>
+      <h3><code>MCPSearch</code> + Programmatic Tool Calling (PTC)</h3>
+      <p class="desc">Two-tier context reduction across the Claude Code CLI and the Claude Developer Platform.</p>
+      <ul>
+        <li><strong>Claude Code CLI (<code>MCPSearch</code>):</strong> Activates automatically when MCP schemas exceed 5% of context (<code>ENABLE_TOOL_SEARCH=auto:5</code>), deferring schema loading (<code>defer_loading: true</code>) for ~85% fewer prompt tokens.</li>
+        <li><strong>Claude API / SDK (PTC):</strong> Tools marked with <code>allowed_callers: ["code_execution_20260120"]</code> become callable Python functions inside a sandboxed container, letting Claude loop and filter 20+ calls in Python before returning final <code>stdout</code>.</li>
+      </ul>
+    </section>
+
+    <section class="h-card">
+      <span class="num">Tau (<code>huggingface/tau</code>)</span>
+      <h3>Minimalist Python Harness + Extension API</h3>
+      <p class="desc">Hugging Face’s readable Python port of Pi’s architecture (<code>tau_ai</code> → <code>tau_agent</code> → <code>tau_coding</code>).</p>
+      <ul>
+        <li><strong>Intentionally minimal core:</strong> Ships only 4 built-in tools (<code>read</code>, <code>write</code>, <code>edit</code>, <code>bash</code> — Pattern 01) without a built-in MCP client or JS VM.</li>
+        <li><strong>Python-native Code Mode via Extensions:</strong> Because Tau runs on Python 3.12+, you can register a custom <code>AgentTool</code> via <code>tau.register_tool(...)</code> in <code>~/.tau/extensions/</code> that embeds <strong>Pydantic Monty</strong> (or calls a FastMCP Code Mode server) directly in-process.</li>
+      </ul>
     </section>
   </div>
 </main>

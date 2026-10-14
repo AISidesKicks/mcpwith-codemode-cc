@@ -196,6 +196,57 @@
     font-size: .85rem;
   }
   a.ext { color: var(--accent); }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .82rem;
+  }
+  code {
+    background: var(--code-bg);
+    padding: .1rem .35rem;
+    border-radius: .3rem;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: .5rem;
+    padding: .65rem .8rem;
+    overflow-x: auto;
+    line-height: 1.45;
+    margin: .5rem 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+  }
+  .harnesses {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .h-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: .75rem;
+    padding: 1rem 1.1rem;
+  }
+  .h-card h3 {
+    margin: .15rem 0 .25rem;
+    font-size: 1.1rem;
+  }
+  .h-card p.desc {
+    margin: 0 0 .65rem;
+    font-size: .88rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .h-card ul {
+    margin: .4rem 0 .6rem;
+    padding-left: 1.1rem;
+    font-size: .86rem;
+  }
+  .h-card li { margin-bottom: .35rem; }
 </style>
 </head>
 <body>
@@ -419,6 +470,65 @@
       <svg class="yt" role="img" aria-label="YouTube"><use href="#yt-logo"/></svg>
     </figcaption>
   </figure>
+
+  <h2>Code Mode in Production Harnesses — Pi 1.0 &amp; OpenCode 2.0</h2>
+  <p>
+    Both <a class="ext" href="https://pi.dev/docs/latest/codemode"><strong>Pi 1.0</strong></a> and
+    <a class="ext" href="https://opencode.ai/v2/docs/tools/#execute"><strong>OpenCode 2.0</strong></a>
+    now ship native <strong>Code Mode</strong> out of the box. Instead of dumping every MCP schema into the prompt and streaming raw intermediate tool payloads through the LLM context window, the agent writes a small JavaScript program that orchestrates tool calls in parallel, filters data in-memory, and returns only the distilled result.
+  </p>
+
+  <div class="harnesses">
+    <section class="h-card">
+      <span class="num">Pi 1.0</span>
+      <h3><code>codemode</code> tool (QuickJS Sandbox)</h3>
+      <p class="desc">Harness-side QuickJS VM (256 MB cap, top-level <code>await</code>, no filesystem/network/timers) that exposes MCP &amp; built-in tools as JS functions.</p>
+      <p class="pc pro">How it is enabled &amp; configured</p>
+      <ul>
+        <li><strong>Auto-enabled for MCP:</strong> Connects automatically when any MCP server in <code>~/.pi/agent/mcp.json</code> or <code>.pi/mcp.json</code> uses the default <code>"exposure": "codemode"</code>, or always-on via <code>"defaultTools": ["+codemode"]</code> in <code>settings.json</code>.</li>
+        <li><strong>Exposure control:</strong> Per-server <code>exposure</code> and per-tool <code>toolExposure</code> let you route tools as <code>codemode</code> (script-only, ~40% fewer prompt tokens), <code>deferred</code> (loaded via search), <code>direct</code>, or <code>hidden</code>.</li>
+      </ul>
+      <p class="pc pro">How it is used</p>
+      <ul>
+        <li><strong>Tool orchestration:</strong> Scripts call <code>await tools.mcp__&lt;server&gt;__&lt;tool&gt;(args)</code> or built-ins like <code>tools.read()</code> / <code>tools.bash()</code>, discovering unlisted schemas on demand with <code>searchTools()</code> (BM25), <code>describeTool()</code>, and <code>ALL_TOOLS</code>.</li>
+        <li><strong>State &amp; auxiliary models:</strong> Persist small JSON state across turns via <code>store(k, v)</code> / <code>load(k)</code>, emit curated output via <code>return</code>, <code>text()</code>, or <code>image()</code>, and invoke non-LLM models with <code>models.classify()</code> and <code>models.generateImages()</code>.</li>
+      </ul>
+      <pre><code>// @options: {"max_output_tokens": 2000, "timeout_ms": 60000}
+const hits = await searchTools("phoenix spans");
+const [proj, spans] = await Promise.all([
+  tools.mcp__phoenix__list_projects({}),
+  tools.mcp__phoenix__get_spans({ project: "default", limit: 200 }),
+]);
+const slow = spans.filter(s =&gt; s.latency_ms &gt; 1500);
+store("slow_span_ids", slow.map(s =&gt; s.id));
+return { projects: proj.length, slowCount: slow.length };</code></pre>
+    </section>
+
+    <section class="h-card">
+      <span class="num">OpenCode 2.0</span>
+      <h3><code>execute</code> tool (Confined Code Mode Runtime)</h3>
+      <p class="desc">Confined JS runtime for scripting catalog tools and <code>fetch</code> requests while enforcing per-tool permissions on every nested call.</p>
+      <p class="pc pro">How it is enabled &amp; configured</p>
+      <ul>
+        <li><strong>Default for MCP servers:</strong> Every server under <code>mcp.servers</code> in <code>opencode.jsonc</code> defaults to <code>"codemode": true</code> (set <code>"codemode": false</code> to keep a server on the provider's native tool list).</li>
+        <li><strong>Granular permissions:</strong> Permission <code>execute</code> (<code>*</code>) gates Code Mode itself, while every nested call inside the script still enforces its own permission rule (e.g. <code>&lt;server&gt;_&lt;tool&gt;</code>).</li>
+      </ul>
+      <p class="pc pro">How it is used</p>
+      <ul>
+        <li><strong>Namespaced catalog:</strong> The agent calls <code>execute({ code })</code> and invokes tools grouped by namespace: <code>tools.&lt;server&gt;.&lt;tool&gt;(input)</code> (or <code>tools.&lt;ns&gt;["tool-name"](input)</code>).</li>
+        <li><strong>Built-in namespaces &amp; concurrency:</strong> Beyond MCP servers, scripts orchestrate <code>tools.opencode.*</code> (sessions, worktrees, model lookup, MCP resources) and <code>tools.browser.*</code> (desktop browser automation), running independent calls concurrently with <code>Promise.allSettled()</code>.</li>
+      </ul>
+      <pre><code>const [resA, resB] = await Promise.allSettled([
+  tools.phoenix.list_projects({}),
+  tools.opencode.list_mcp_resources({ server: "phoenix" }),
+]);
+const projects = resA.status === "fulfilled" ? resA.value : [];
+return {
+  activeProjects: projects.map(p =&gt; p.name),
+  resources: resB.status === "fulfilled" ? resB.value.resources.length : 0,
+};</code></pre>
+    </section>
+  </div>
 </main>
 
 <footer class="site">

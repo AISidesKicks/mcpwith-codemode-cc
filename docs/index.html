@@ -96,7 +96,7 @@
     grid-template-rows: subgrid;
     align-content: start;
   }
-  .card .num {
+  .card .num, .h-card .num {
     display: inline-block;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: .75rem;
@@ -515,7 +515,7 @@ return { projects: proj.length, slowCount: slow.length };</code></pre>
       </ul>
       <p class="pc pro">How it is used</p>
       <ul>
-        <li><strong>Namespaced catalog:</strong> The agent calls <code>execute({ code })</code> and invokes tools grouped by namespace: <code>tools.&lt;server&gt;.&lt;tool&gt;(input)</code> (or <code>tools.&lt;ns&gt;["tool-name"](input)</code>).</li>
+        <li><strong>Namespaced catalog &amp; search:</strong> The agent calls <code>execute({ code })</code> to run JS against tools in the catalog (or discovered via <code>search()</code>) using <code>tools.&lt;server&gt;.&lt;tool&gt;(input)</code> (or <code>tools.&lt;ns&gt;["tool-name"](input)</code>) plus native <code>fetch</code>.</li>
         <li><strong>Built-in namespaces &amp; concurrency:</strong> Beyond MCP servers, scripts orchestrate <code>tools.opencode.*</code> (sessions, worktrees, model lookup, MCP resources) and <code>tools.browser.*</code> (desktop browser automation), running independent calls concurrently with <code>Promise.allSettled()</code>.</li>
       </ul>
       <pre><code>const [resA, resB] = await Promise.allSettled([
